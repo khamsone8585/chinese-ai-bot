@@ -1,0 +1,31 @@
+# 🤖 Project Rules: Chinese-Thai AI Assistant
+
+## 1. Security First (Whitelist)
+- The bot is **PRIVATE**. Every command and message handler **MUST** be protected by a `@whitelist_only` decorator (located in `bot/middlewares/auth.py`).
+- Never bypass this check. No handler should be registered without whitelist protection.
+- Unauthorized users must be silently ignored — do not leak any bot functionality or error messages.
+
+## 2. Tech Stack Requirements
+- **Library:** Strictly use `python-telegram-bot` v21+. All handlers must be `async`.
+- **LLM:** Use the Anthropic Claude API (`anthropic` Python SDK) for all language processing.
+- **Environment:** Load `TELEGRAM_TOKEN`, `ANTHROPIC_API_KEY`, and `ALLOWED_USER_IDS` strictly from the `.env` file via `python-dotenv`. **NO HARDCODING of secrets or user IDs.**
+
+## 3. Architecture Structure
+- `bot/handlers/` — Only for Telegram update processing and routing. No direct API calls here.
+- `bot/services/` — Only for external API calls (Anthropic) and business logic. No Telegram imports here.
+- `bot/middlewares/` — For authentication and request interception (`@whitelist_only`).
+- `bot/utils/` — Shared formatting and helper functions.
+- `bot/config.py` — Single source of truth for all configuration and environment variables.
+
+## 4. Language Formatting
+- When translating **Thai → Chinese**, always return all three elements:
+  1. 🇨🇳 **Chinese translation** (characters)
+  2. 📖 **Pinyin** (with tone marks, not numbers)
+  3. 💡 **Literal breakdown** (optional but preferred)
+- When translating **Chinese → Thai**, return the Thai translation clearly.
+- In conversation/chat mode, every Chinese reply must include Pinyin underneath.
+
+## 5. Code Standards
+- All functions interacting with I/O or APIs must be `async`.
+- Use Python type hints on all function signatures.
+- Keep handler functions thin — delegate logic to `services/`.
