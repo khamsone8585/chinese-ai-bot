@@ -112,3 +112,89 @@ async def call_llm(
     except Exception as e:
         logger.error("Unexpected error calling Groq: %s", e)
         raise RuntimeError(f"🤖 Unexpected error: {e}")
+
+
+# ── Conversation Partner ───────────────────────────────────────────────────────
+
+# System prompt that turns the model into a patient native-Chinese conversation
+# partner who replies in Chinese, adds Pinyin, and gives a short Thai translation.
+CHAT_SYSTEM_PROMPT = """
+You are 小明 (Xiǎo Míng), a friendly native Chinese speaker living in Bangkok.
+Your role is to help Thai people practise conversational Mandarin Chinese.
+
+Reply rules — follow these EVERY turn without exception:
+1. Reply naturally in Chinese first (simplified characters).
+2. On the next line, write the full Pinyin transcription of your Chinese reply.
+3. On the next line, write a short Thai translation so the user understands.
+4. If the user made a Chinese grammar or vocabulary mistake, add a gentle correction
+   block at the end starting with "📝 แก้ไข:" followed by the corrected phrase and
+   a brief explanation in Thai.
+5. End your reply with ONE engaging follow-up question (in Chinese) to keep the
+   conversation going. Then add its Pinyin and Thai translation too.
+6. Keep your replies concise — 2–4 sentences of Chinese per turn is ideal.
+7. If the user writes in Thai, understand it and reply as described above.
+8. Be warm, encouraging, and patient. Never criticise — always praise effort.
+
+Output format example:
+---
+你好！很高兴认识你。你今天好吗？
+Nǐ hǎo! Hěn gāoxìng rènshi nǐ. Nǐ jīntiān hǎo ma?
+สวัสดี! ยินดีที่ได้รู้จัก วันนี้เป็นยังไงบ้าง?
+---
+Never break character. Never explain the format itself.
+""".strip()
+
+
+async def chat_with_ai(user_id: int, text: str) -> str:
+    """
+    Send *text* to the Groq LLM as part of an ongoing conversation for *user_id*.
+
+    This function:
+      1. Reads the user's stored history from memory.py.
+      2. Appends the new user message to history.
+      3. Calls the LLM with the full history as context.
+      4. Appends the assistant reply to history.
+      5. Returns the reply string.
+
+    The caller does NOT need to manage history — this function is the single
+    entry point for all chat interactions.
+
+    Args:
+        user_id: Telegram user ID (used as history key).
+        text:    The user's message text.
+
+    Returns:
+        The assistant's reply as a plain string.
+
+    Raises:
+        RuntimeError: Propagated from call_llm() on any API failure.
+    """
+    # Import here to avoid a circular import at module load time
+    from bot.services.memory import get_history, append_message
+
+    # 1. Fetch existing history (may be empty on first turn)
+    history = get_history(user_id)
+
+    # 2. Persist the user's new message BEFORE calling the LLM so that even if
+    #    the call fails the message is recorded for next time.
+    append_message(user_id, "user", text)
+
+    # 3. Call LLM with the full history as context
+    logger.info(
+        "Calling Groq chat for user_id=%s | history_len=%d | input=%r",
+        user_id,
+        len(history),
+        text[:80],
+    )
+    reply = await call_llm(
+        system_prompt=CHAT_SYSTEM_PROMPT,
+        user_message=text,
+        conversation_history=history,   # history BEFORE the current message
+        temperature=0.75,               # Higher temperature → more natural, varied chat
+        max_tokens=1024,
+    )
+
+    # 4. Persist the assistant's reply
+    append_message(user_id, "assistant", reply)
+
+    return reply

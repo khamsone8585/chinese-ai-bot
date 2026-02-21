@@ -107,7 +107,18 @@ Input:  "เธอไม่รักฉันแล้วหรือ"
   ✅ CORRECT: "你不爱我了吗" ← YOU (你) don't love ME (我) anymore?
 
 ════════════════════════════════════════════════════════
-STEP 4 — OUTPUT RULES (MANDATORY)
+STEP 4 — VOCABULARY CONTEXT RULES
+════════════════════════════════════════════════════════
+CRITICAL WORD MEANINGS — respect these exact translations:
+  ความรู้สึก = 感觉 (gǎnjué) = feeling/sensation  — NOT 爱 (love)
+  ความรัก    = 爱 (ài)       = love/romantic love
+  ความชอบ    = 喜欢 (xǐhuān) = like
+  รู้สึก     = 觉得/感觉      = to feel
+Never upgrade a mild feeling word (รู้สึก / ความรู้สึก) to 爱 (love). \
+Chose the most semantically precise Chinese equivalent.
+
+════════════════════════════════════════════════════════
+STEP 5 — OUTPUT RULES (MANDATORY)
 ════════════════════════════════════════════════════════
 - Your ENTIRE response must be ONE raw JSON object.
 - Do NOT write ```json, ```, or any markdown.
@@ -126,15 +137,25 @@ Required JSON structure:
   ]
 }
 
-Field definitions:
+CRITICAL FIELD DEFINITIONS — READ CAREFULLY:
+- "chinese": MUST contain ONLY Simplified Chinese characters (汉字), e.g. "你不爱我了".
+             NEVER put Pinyin romanization here. NEVER leave this field empty.
+             If the field is empty or contains Latin letters, your output is WRONG.
+- "pinyin":  MUST contain ONLY the Pinyin romanization with Unicode tone marks \
+(ā á ǎ à / ē é ě è / etc). NEVER numbers like ni3. NEVER Chinese characters here.
 - "formal": Very polite, professional (e.g. email to a senior executive).
 - "semi_formal": Polite, workplace-appropriate (e.g. message to a manager).
 - "chat": Casual typed message (e.g. LINE/WeChat to a colleague).
 - "close_friend": Relaxed, colloquial (e.g. texting a best friend).
-- "pinyin": Unicode tone marks (ā á ǎ à / ē é ě è / etc). NEVER numbers like ni3.
-- "thai_translation": Back-translation of each Chinese sentence into Thai so the \
-user can see how register nuance changes the phrasing.
-- "vocabulary": 3–6 key words/phrases with "word" (Chinese), "pinyin", "meaning" (Thai).
+- "thai_translation": Back-translation of the Chinese sentence into Thai.
+- "vocabulary": 3–6 key words/phrases with "word" (Chinese 汉字), "pinyin", "meaning" (Thai).
+
+CONCRETE EXAMPLE — for input "สวัสดี":
+  CORRECT output (chinese has 汉字, pinyin has romanization):
+    {"chinese": "你好！", "pinyin": "Nǐ hǎo!", "thai_translation": "สวัสดี"}
+  WRONG output (never do this):
+    {"chinese": "Nǐ hǎo!", "pinyin": "Nǐ hǎo!", "thai_translation": "สวัสดี"}
+    {"chinese": "",        "pinyin": "Nǐ hǎo!", "thai_translation": "สวัสดี"}
 
 Output ONLY the JSON object. Nothing before it, nothing after it.
 """
@@ -181,6 +202,13 @@ async def translate_thai_to_chinese(text: str) -> dict:
         user_message=text,
         temperature=0.2,
     )
+
+    # ── DEBUG: print raw Groq response so we can verify 汉字 are present ────────
+    print("\n" + "=" * 60)
+    print("[DEBUG] Raw Groq TH→CN response:")
+    print(raw)
+    print("=" * 60 + "\n")
+    # ────────────────────────────────────────────────────────────────────────────
 
     return _parse_json_response(
         raw,

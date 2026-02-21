@@ -17,11 +17,23 @@ def _esc(text: str) -> str:
     return html.escape(str(text))
 
 
+def _has_chinese(text: str) -> bool:
+    """Return True if *text* contains at least one CJK Unified Ideograph character."""
+    return any("\u4e00" <= ch <= "\u9fff" or "\u3400" <= ch <= "\u4dbf" for ch in text)
+
+
 def _level_block(emoji: str, label_th: str, level: dict) -> str:
     """Render a single formality-level block including the Thai back-translation."""
-    chinese = _esc(level.get("chinese", "—"))
-    pinyin = _esc(level.get("pinyin", "—"))
-    thai_tr = _esc(level.get("thai_translation", ""))
+    raw_chinese = level.get("chinese", "")
+    pinyin      = _esc(level.get("pinyin", "—"))
+    thai_tr     = _esc(level.get("thai_translation", ""))
+
+    # Guard: if the LLM returned empty or accidentally put Pinyin in the chinese field,
+    # make it visibly obvious in the output rather than silently blank.
+    if not raw_chinese or not _has_chinese(raw_chinese):
+        chinese = "⚠️ [Missing 汉字 — see terminal DEBUG log]"
+    else:
+        chinese = _esc(raw_chinese)
 
     lines = [
         f"{emoji} <b>{label_th}</b>",

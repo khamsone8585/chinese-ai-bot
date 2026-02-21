@@ -12,11 +12,12 @@ Responsibilities:
 
 import logging
 
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ConversationHandler, MessageHandler, filters
 
 from bot.config import settings
 from bot.handlers.start import start_handler, help_handler
 from bot.handlers.translate import th2cn_handler, cn2th_handler, auto_translate_handler
+from bot.handlers.chat import build_chat_conversation_handler
 
 
 def setup_logging() -> None:
@@ -48,11 +49,14 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("th2cn", th2cn_handler))
     app.add_handler(CommandHandler("cn2th", cn2th_handler))
 
-    # Auto-detect: fires on plain text messages (not commands)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_translate_handler))
+    # ── Phase 3: Conversation Partner ─────────────────────────────────────────
+    # IMPORTANT: ConversationHandler must be registered BEFORE the auto-translate
+    # MessageHandler. When the user is in CHATTING state, ptb routes the message
+    # to this handler; auto_translate_handler never fires during chat mode.
+    app.add_handler(build_chat_conversation_handler())
 
-    # ── Phase 3 placeholder ───────────────────────────────────────────────────
-    # app.add_handler(ConversationHandler(...))  # /chat mode
+    # Auto-detect: fires on plain text messages (not commands) OUTSIDE chat mode
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_translate_handler))
 
     return app
 
